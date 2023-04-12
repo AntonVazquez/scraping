@@ -1,39 +1,42 @@
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
+import csv
 
-# Define la cabecera HTTP adicional para indicar que nuestra solicitud proviene de un navegador web
-headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
-
-# Realiza la solicitud HTTP a la página de productos de Eroski con la cabecera definida
 url = 'https://soysuper.com/c?page=1#products'
-response = requests.get(url, headers=headers)
+response = requests.get(url)
 
-# Analiza el código HTML utilizando BeautifulSoup
 soup = BeautifulSoup(response.content, 'html.parser')
 
-# Encuentra todos los elementos de productos utilizando su clase
-product_divs = soup.find_all('div', class_='conteiner')
+products = soup.find_all('li', {'data-pid': True})
 
-# Inicializa las listas para almacenar los datos de cada producto
-product_names = []
-product_prices = []
-product_priceCurrency = []
-product_unitprice = []
+# abrir archivo csv en modo escritura
+with open('Productos.csv', mode='w', encoding='utf-8', newline='') as file:
+    writer = csv.writer(file)
+    # escribir encabezados de las columnas
+    writer.writerow(['Name', 'Brand', 'Price', 'Currency', 'Price per unit'])
 
-# Extrae los datos de cada producto y los agrega a las listas
-for product_div in product_divs:
-    product_name = product_div.find('span', class_='productname', itemprop='name').text
-    product_price = product_div.find('span', class_='price').text.strip()
-    product_priceCurrency = product_div.find('meta', itemprop='priceCurrency')['content']
-    product_unitprice = product_div.find('span', class_='product-unitprice').text.strip()
-    product_names.append(product_name)
-    product_prices.append(product_price)
-    product_priceCurrency.append(product_priceCurrency)
-    product_unitprice.append(product_unitprice)
+    for product in products:
+        name = product.find('span', {'class': 'productname'}).text.strip()
+        brand = product.find('span', {'class': 'brand'})
+        if brand is not None:
+            brand = brand.text.strip()
+        else:
+            brand = ""
+        price = product.find('meta', {'itemprop': 'price'})['content']
+        currency = product.find('meta', {'itemprop': 'priceCurrency'})['content']
+        price_unit = product.find('span', {'class': 'unitprice'})
+        if price_unit is not None:
+            price_unit = price_unit.text.strip()
+        else:
+            price_unit = ""
 
-# Crea un DataFrame con los datos de los productos y lo guarda como un archivo CSV
-data = {'name': product_names, 'price': product_prices, 'priceCurrency': product_priceCurrency, 'unitprice': product_unitprice}
-df = pd.DataFrame(data)
-df.to_csv('productos.csv', index=False)
+        # escribir fila en el archivo csv
+        writer.writerow([name, brand, price, currency, price_unit])
+
+        print('Name:', name)
+        print('Brand:', brand)
+        print('Price:', price, currency)
+        print('Price per unit:', price_unit)
+        print('-----------------------')
+
+print('Resultados guardados en Productos.csv')
